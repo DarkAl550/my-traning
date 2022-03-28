@@ -8,6 +8,7 @@ public with sharing class WeatherService{
         request.setTimeout(60000);
         HttpResponse response = new Http().send(request);
         Map<String, Object> responseResult = (Map<String, Object>) JSON.deserializeUntyped(response.getBody());
+        //TODO: fix switch or create alternative
         switch on (responseResult.get('cod').toString()) {
             when '200' {
                 createForecasts(responseResult);
@@ -29,7 +30,7 @@ public with sharing class WeatherService{
         Map<String, OpenWeatherMap_Setting__mdt> metadataSettings = OpenWeatherMap_Setting__mdt.getAll();
         return metadataSettings.get('OpenWeatherMap_Setting').get('API_Service__c') + city + metadataSettings.get('OpenWeatherMap_Setting').get('API_Key__c');
     }
-    //TODO: Fix this method 
+    //TODO: update this method 
     private static void createForecasts(Map<String, Object> responseMap){
         List<Forecast__c> forecasts = new List<Forecast__c>();
         List<Object> lists = (List<Object>) responseMap.get('list');
@@ -39,7 +40,6 @@ public with sharing class WeatherService{
             forecastsMap.add((Map<String, Object>) obj);
         }
         City__c city = setCity(cityMap);
-        System.debug(city);
         for(Map<String, Object> forecastMap : forecastsMap){
             Map<String, Object> main = (Map<String, Object>) forecastMap.get('main');
             Map<String, Object> wind = (Map<String, Object>) forecastMap.get('wind');
@@ -47,18 +47,24 @@ public with sharing class WeatherService{
             for(Object obj : (List<Object>)forecastMap.get('weather')){
                 weathers.add((Map<String, Object>) obj);
             }
-            Forecast__c forecast = new Forecast__c(Name = cityMap.get('name').toString() + ' ' + forecastMap.get('dt_txt').toString(),
-                                                    City__c = city.Id);
+            Forecast__c forecast = new Forecast__c();
+            forecast.Name = cityMap.get('name').toString() + ' ' + forecastMap.get('dt_txt').toString();
+            forecast.City__c = city.Id;
+            forecast.Temperature__c = Double.valueOf(main.get('temp')) - 273.15;
+            forecast.Wind_Speed__c = Double.valueOf(wind.get('speed'));
+            forecast.Pressure__c = Double.valueOf(main.get('pressure'));
+            forecast.Humidity__c = Double.valueOf(main.get('humidity'));
+            forecast.Icon__c = 'https://openweathermap.org/img/wn/'+weathers[0].get('icon')+'@2x.png';
+            forecast.Title__c = weathers[0].get('main').toString();
+            forecast.Description__c = weathers[0].get('description').toString();
+            forecast.Date_Time__c = Datetime.newInstanceGmt(1970, 1, 1, 0, 0, 0).addSeconds((Integer)forecastMap.get('dt'));
             forecasts.add(forecast);
-
         }
-        System.debug('forecasts' + forecasts.size());
         System.debug(forecasts);
-
-        
-        
+        insert forecasts;        
     }
     private static City__c setCity(Map<String,Object> cityMap){
+        
         List<City__c> cities = [
                                 SELECT Name
                                 FROM City__c
@@ -76,7 +82,7 @@ public with sharing class WeatherService{
     private static City__c createCity(Map<String,Object> cityMap){
         City__c newCity = new City__c();
         newCity.Name = cityMap.get('name').toString();
-        Map<String, Object> coord = (Map<String,Object>) cityMap.get('coord');
+        newCity.Country__c = cityMap.get('country').toString();
         insert newCity; 
         return newCity;
     }
