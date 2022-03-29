@@ -5,6 +5,9 @@
 .metadata
 build.properties
 config
+.forceCode
+.sfdx
+.vim-force.com
 
 # Apex Log as optional
 apex-scripts/log
